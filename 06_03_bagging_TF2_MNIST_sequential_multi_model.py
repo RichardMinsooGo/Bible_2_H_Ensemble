@@ -119,8 +119,7 @@ model_3 = Sequential([
 
 models = [model_1, model_2, model_3]
 num_models = len(models)
-# for m in range(num_models):
-#     models.append(model)
+
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 

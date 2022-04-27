@@ -4,8 +4,6 @@ from tensorflow.keras import Model, Sequential
 
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
-from tensorflow.keras import Input
-
 import numpy as np
 
 # Hyper-parameters 
@@ -65,56 +63,46 @@ for i in range(9):
 # show the figure
 plt.show()
 
-def create_model():
-    inputs = Input(shape=(28, 28, 1))
-    conv1      = Conv2D(filters=32, kernel_size=[3, 3], padding='SAME', activation=tf.nn.relu)(inputs)
-    pool1      = MaxPool2D(padding='SAME')(conv1)
-    conv2      = Conv2D(filters=64, kernel_size=[3, 3], padding='SAME', activation=tf.nn.relu)(pool1)
-    pool2      = MaxPool2D(padding='SAME')(conv2)
-    pool3_flat = Flatten()(pool2)
-    dense4     = Dense(units=128, activation=tf.nn.relu)(pool3_flat)
-    drop4      = Dropout(rate=0.4)(dense4)
-    
-    logits = Dense(10, activation='softmax')(drop4)
-    
-    model = Model(inputs=inputs, outputs=logits)
+# in the case of Keras or TF2, type shall be [image_size, image_size, 1]
 
-    return model
+model = Sequential([
+    Conv2D(filters=64, kernel_size=3, activation=tf.nn.relu, padding='SAME',input_shape=(28, 28, 1)),
+    MaxPool2D(padding='SAME'),
+    Conv2D(filters=128, kernel_size=3, activation=tf.nn.relu, padding='SAME'),
+    MaxPool2D(padding='SAME'),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.2),
+    Dense(10, activation='softmax')
+])
 
-model_1 = create_model()
-model_2 = create_model()
-model_3 = create_model()
-
-models = [model_1, model_2, model_3]
-num_models = len(models)
+model.summary()
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-
+@tf.function
 def loss_fn(model, images, labels):
     logits = model(images, training=True)
     loss = tf.reduce_mean(tf.keras.losses.categorical_crossentropy(
         y_pred=logits, y_true=labels, from_logits=True))    
     return loss   
 
+@tf.function
 def grad(model, images, labels):
     with tf.GradientTape() as tape:
         loss = loss_fn(model, images, labels)
     return tape.gradient(loss, model.variables)
 
-def evaluate(models, images, labels):
-    predictions = np.zeros_like(labels)
-    for model in models:
-        logits = model(images, training=False)
-        predictions += logits
-    correct_prediction = tf.equal(tf.argmax(predictions, 1), tf.argmax(labels, 1))
+@tf.function
+def evaluate(model, images, labels):
+    logits = model(images, training=False)
+    correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     return accuracy
 
-checkpoints = []
-for m in range(num_models):
-    checkpoints.append(tf.train.Checkpoint(cnn=models[m]))
+checkpoint = tf.train.Checkpoint(cnn=model)
 
+@tf.function
 def train_step(model, images, labels):
     gradients = grad(model, images, labels)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -128,13 +116,13 @@ for epoch in range(EPOCHS):
         train_accuracies = []
         
         for images, labels in train_ds:
-            for model in models:
-                train_step(model, images, labels)
             
-                loss_val = loss_fn(model, images, labels)
-                train_losses.append(loss_val / num_models)
+            train_step(model, images, labels)
             
-            acc = 100 * evaluate(models, images, labels)
+            loss_val = loss_fn(model, images, labels)
+            train_losses.append(loss_val)
+            
+            acc = 100 * evaluate(model, images, labels)
 
             train_accuracies.append(acc)
             
@@ -145,11 +133,10 @@ for epoch in range(EPOCHS):
         test_losses = []
         test_accuracies = []
         for test_images, test_labels in test_ds:
-            for model in models:
-                loss_val = loss_fn(model, test_images, test_labels)
+            loss_val = loss_fn(model, test_images, test_labels)
 
-                test_losses.append(loss_val / num_models)
-            acc = 100 * evaluate(models, test_images, test_labels)
+            test_losses.append(loss_val)
+            acc = 100 * evaluate(model, test_images, test_labels)
             
             test_accuracies.append(acc)
 
