@@ -2,8 +2,8 @@
 
 ## English
 
--. Theory : 
--. Implementation : 
+*. Theory : 
+*. Implementation : 
 
 ## 한글
 
