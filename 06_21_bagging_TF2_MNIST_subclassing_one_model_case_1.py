@@ -154,7 +154,7 @@ for epoch in range(EPOCHS):
             for model in models:
                 loss_val = loss_fn(model, test_images, test_labels)
 
-                test_losses.append(loss_val)
+                test_losses.append(loss_val / num_models)
             acc = 100 * evaluate(models, test_images, test_labels)
             
             test_accuracies.append(acc)

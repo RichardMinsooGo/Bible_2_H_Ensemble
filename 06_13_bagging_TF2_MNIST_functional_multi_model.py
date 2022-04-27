@@ -119,8 +119,6 @@ model_3 = create_model_3()
 
 models = [model_1, model_2, model_3]
 num_models = len(models)
-# for m in range(num_models):
-#     models.append(model)
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
@@ -182,7 +180,7 @@ for epoch in range(EPOCHS):
             for model in models:
                 loss_val = loss_fn(model, test_images, test_labels)
 
-                test_losses.append(loss_val)
+                test_losses.append(loss_val / num_models)
             acc = 100 * evaluate(models, test_images, test_labels)
             
             test_accuracies.append(acc)
