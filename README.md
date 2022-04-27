@@ -10,7 +10,7 @@ Please visit below links, Ensemble theories and Implementation are explained.
 
 ## 한글
 
-### 이론 : 
+### 이론 : https://wikidocs.net/164322 and https://wikidocs.net/164645 and https://wikidocs.net/164307 and https://wikidocs.net/164356
 
 ### 구현 : 
 
