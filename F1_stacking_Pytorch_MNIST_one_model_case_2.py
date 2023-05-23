@@ -1,73 +1,98 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
+'''
+Data Engineering
+'''
+
+'''
+D1. Import Libraries for Data Engineering
+'''
 import numpy as np
 
-# Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import torch
+import torchvision
+from torchvision import datasets
+import torchvision.transforms as transforms
 
-# Hyper-parameters 
-input_size = 784 # 28x28
+'''
+D2. Load MNIST data
+'''
+train_dataset = datasets.MNIST(root='./data', 
+                             download=True,
+                             train=True,
+                             transform=transforms.ToTensor())
+
+test_dataset = datasets.MNIST(root='./data', 
+                            download=True,
+                            train=False,
+                             transform=transforms.ToTensor())
+
+'''
+Model Engineering
+'''
+
+'''
+M1. Import Libraries for Model Engineering
+'''
+
+import torch.nn as nn
+import torch.optim as optimizers
+
+np.random.seed(123)
+torch.manual_seed(123)
+
+'''
+M2. Set Hyperparameters
+'''
 hidden_size = 256 
-num_classes = 10
-EPOCHS = 5
+output_dim = 10 # output layer dimensionality = num_classes
+EPOCHS = 30
 batch_size = 100
 learning_rate = 0.001
 
-# MNIST dataset 
-train_dataset = torchvision.datasets.MNIST(root='./data', 
-                                           train=True, 
-                                           transform=transforms.ToTensor(),  
-                                           download=True)
+'''
+M3. DataLoader
+'''
 
-test_dataset = torchvision.datasets.MNIST(root='./data', 
-                                          train=False, 
-                                          transform=transforms.ToTensor())
-
-# Data loader
 train_ds = torch.utils.data.DataLoader(dataset=train_dataset,
                                        batch_size=batch_size, 
                                        shuffle=True)
-
 test_ds = torch.utils.data.DataLoader(dataset=test_dataset,
                                       batch_size=batch_size, 
                                       shuffle=False)
 
-# plot first few images
-examples = iter(test_ds)
-example_data, example_targets = examples.next()
-
-for i in range(9):
-    # define subplot
-    plt.subplot(330 + 1 + i)
-    # plot raw pixel data
-    plt.imshow(example_data[i][0], cmap=plt.get_cmap('gray'))
-    # if you want to invert color, you can use 'gray_r'. this can be used only for MNIST, Fashion MNIST not cifar10
-    # pyplot.imshow(trainX[i], cmap=pyplot.get_cmap('gray_r'))
-    
-# show the figure
-plt.show()
-
+'''
+M4. Build NN model
+'''
 # 3-Layers Convolution neural network with one hidden layer
 class CNN_Model(nn.Module):
     def __init__(self):
         super(CNN_Model, self).__init__()
+        
+        # Convolution 1
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=0)
         self.relu1 = nn.ReLU()
+        
+        # Max pool 1
         self.maxpool2d1 = nn.MaxPool2d(kernel_size=2)
+     
+        # Convolution 2
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=0)
         self.relu2 = nn.ReLU()
+        
+        # Max pool 2
         self.maxpool2d2 = nn.MaxPool2d(kernel_size=2)
+        
+        # Convolution 3
         self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=0)
         self.relu3 = nn.ReLU()
+        
+        # Max pool 3
         self.maxpool2d3 = nn.MaxPool2d(kernel_size=2)
+        
+        # Fully connected 1 (readout)
         self.d1 = nn.Linear(256 * 1 * 1, 256) 
         self.d2 = nn.Dropout(0.2)
         self.d3 = nn.Linear(256, 256) 
-        self.d4 = nn.Linear(256*3, num_classes) 
+        self.d4 = nn.Linear(256*3, output_dim) 
 
     def forward(self, x):
         
@@ -119,16 +144,31 @@ class CNN_Model(nn.Module):
         out = self.d4(out)
         
         return out
-    
-# model = CNN_Model(input_size, hidden_size, num_classes).to(device)
+
+'''
+M5. Transfer model to GPU
+'''
+
+# Device configuration
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# model = CNN_Model(input_size, hidden_size, output_dim).to(device)
 model = CNN_Model().to(device)
 
-# Loss and optimizer
-criterion = nn.CrossEntropyLoss()
+'''
+M6. Optimizer
+'''
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  
 
-# Train the model
-n_total_steps = len(train_ds)
+'''
+M7. Define Loss Fumction
+'''
+
+criterion = nn.CrossEntropyLoss()
+
+'''
+M8. Define train loop
+'''
 
 def train_step(model, images, labels):
     model.train()
@@ -137,8 +177,8 @@ def train_step(model, images, labels):
     labels = labels.to(device)
 
     # Forward pass
-    outputs = model(images)
-    loss = criterion(outputs, labels)
+    predictions = model(images)
+    loss = criterion(predictions, labels)
     loss_val = loss.item()
 
     # Backward and optimize
@@ -148,12 +188,16 @@ def train_step(model, images, labels):
 
     # Pytorch need a manual coding for accuracy
     # max returns (value ,index)
-    _, predicted = torch.max(outputs.data, 1)           
+    _, predicted = torch.max(predictions.data, 1)           
     n_samples = labels.size(0)
     n_correct = (predicted == labels).sum().item()
     acc = 100.0 * n_correct / n_samples
     
     return loss_val, acc
+
+'''
+M9. Define validation / test loop
+'''
 
 def test_step(model, images, labels):
     model.eval()
@@ -162,19 +206,22 @@ def test_step(model, images, labels):
     labels = labels.to(device)
 
     # Forward pass
-    outputs = model(images)
-    loss = criterion(outputs, labels)
+    predictions = model(images)
+    loss = criterion(predictions, labels)
     loss_val = loss.item()
 
     # Pytorch need a manual coding for accuracy
     # max returns (value ,index)
-    _, predicted = torch.max(outputs.data, 1)           
+    _, predicted = torch.max(predictions.data, 1)           
     n_samples = labels.size(0)
     n_correct = (predicted == labels).sum().item()
     acc = 100.0 * n_correct / n_samples
     
     return loss_val, acc
 
+'''
+M10. Define Episode / each step process
+'''
 from tqdm import tqdm, tqdm_notebook, trange
 
 for epoch in range(EPOCHS):
@@ -194,20 +241,22 @@ for epoch in range(EPOCHS):
             pbar.set_postfix_str(f"Loss: {loss_val:.4f} ({np.mean(train_losses):.4f}) Acc: {acc:.3f} ({np.mean(train_accuracies):.3f})")
 
 
-    # Test the model
-    # In test phase, we don't need to compute gradients (for memory efficiency)
-    with torch.no_grad():
-        
-        with tqdm_notebook(total=len(test_ds), desc=f"Test_ Epoch {epoch+1}") as pbar:    
-            test_losses = []
-            test_accuracies = []
+'''
+M11. Model evaluation
+'''
+# In test phase, we don't need to compute gradients (for memory efficiency)
+with torch.no_grad():
 
-            for images, labels in test_ds:
-                loss_val, acc = test_step(model, images, labels)
+    with tqdm_notebook(total=len(test_ds), desc=f"Test_ Epoch {epoch+1}") as pbar:    
+        test_losses = []
+        test_accuracies = []
 
-                test_losses.append(loss_val)
-                test_accuracies.append(acc)
+        for images, labels in test_ds:
+            loss_val, acc = test_step(model, images, labels)
 
-                pbar.update(1)
-                pbar.set_postfix_str(f"Loss: {loss_val:.4f} ({np.mean(test_losses):.4f}) Acc: {acc:.3f} ({np.mean(test_accuracies):.3f})")
+            test_losses.append(loss_val)
+            test_accuracies.append(acc)
+
+            pbar.update(1)
+            pbar.set_postfix_str(f"Loss: {loss_val:.4f} ({np.mean(test_losses):.4f}) Acc: {acc:.3f} ({np.mean(test_accuracies):.3f})")
             
